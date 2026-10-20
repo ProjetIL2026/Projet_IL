@@ -12,7 +12,10 @@ app.get('/api/bdd/status', async (req, res) => {
         const [rows] = await bdd.query("SELECT 1+1 AS result");
         res.json({status: 'ok', db:'connecté', result: rows[0].result});
     } catch(err){
-        res.status(500).json({ status: 'error', message: err.message });
+        res.status(500).json({ 
+            status: "error", 
+            message: err.message || err.code || String(err) 
+        });
     }
 })
 
