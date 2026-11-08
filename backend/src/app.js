@@ -1,8 +1,12 @@
 const express = require("express");
 require('dotenv').config();
+const { Server } = require("socket.io");
 
 const app = express();
+const server = http.createServer(app);
 const bdd = require('./bdd');
+const io = new Server(server);
+
 
 app.use(express.json());
 
