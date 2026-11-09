@@ -6,9 +6,10 @@ const app = express();
 const server = http.createServer(app);
 const bdd = require('./bdd');
 const io = new Server(server);
-
+const userRoutes = require('./routes/utilisateurRoutes')
 
 app.use(express.json());
+app.use('/api/users', userRoutes);
 
 //test route
 app.get('/api/bdd/status', async (req, res) => {
