@@ -1,4 +1,5 @@
 const express = require("express");
+const http = require("http");
 require('dotenv').config();
 const { Server } = require("socket.io");
 
@@ -25,7 +26,7 @@ app.get('/api/bdd/status', async (req, res) => {
 })
 
 const PORT = 8888;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Serveur démarré sur le port ${PORT}`);
 });
 
