@@ -9,12 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.2",
     "pinia": "^4.0.3",
     "vue": "^3.5.42",
     "vue-router": "^5.3.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.8",
+    "sass": "^1.77.8",
     "vite": "^8.2.2",
     "vite-plugin-vue-devtools": "^8.2.1"
   },

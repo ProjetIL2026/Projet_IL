@@ -1,0 +1,109 @@
+
+$primary: #5e045e;
+$secondary: #27272a;
+$dark: #18181b;
+$body-bg: #09090b;
+$body-color: #f4f4f5;
+
+$font-family-sans-serif: "Montserrat", sans-serif;
+$border-radius: 1rem;
+$border-radius-sm: 0.8rem;
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+@import "bootstrap/scss/bootstrap";
+
+.app-navbar {
+  height: 80px;
+  background-color: rgba(#09090b, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid #18181b;
+}
+
+.nav-link-custom {
+  color: #a1a1aa;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.4rem 0.75rem;
+  border-radius: $border-radius;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: #ffffff;
+    background-color: #18181b;
+  }
+
+  &.active {
+    color: #ffffff;
+  }
+}
+
+/* Footer */
+.app-footer {
+  background-color: #09090b;
+  border-top: 1px solid #18181b;
+  color: #71717a;
+}
+
+.footer-link {
+  color: #71717a;
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: #e2e8f0;
+  }
+}
+
+/* Boutons et input */
+.form-control, .btn {
+  box-shadow: none !important;
+}
+
+.btn-secondary-custom {
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  color: #f4f4f5;
+  font-weight: 500;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background-color: #27272a;
+    border-color: #3f3f46;
+    color: #ffffff;
+  }
+}
+
+/* dropdown du compte */
+.dropdown-menu-dark-custom {
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  border-radius: $border-radius;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  padding: 0.5rem;
+
+  .dropdown-item {
+    color: #a1a1aa;
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    transition: all 0.15s ease;
+
+    &:hover {
+      color: #ffffff;
+      background-color: #27272a;
+    }
+
+    &.text-danger:hover {
+      color: #ef4444;
+      background-color: rgba(#ef4444, 0.1);
+    }
+  }
+
+  .dropdown-divider {
+    border-top: 1px solid #27272a;
+    margin: 0.4rem 0;
+  }
+}
