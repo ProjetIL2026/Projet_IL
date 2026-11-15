@@ -1,18 +1,19 @@
+require('dotenv').config();
 const express = require("express");
 const http = require("http");
-require('dotenv').config();
 const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
 const bdd = require('./bdd');
 const io = new Server(server);
-const userRoutes = require('./routes/utilisateurRoutes')
+const utilisateurRoutes = require('./routes/utilisateurRoutes');
+const salonRoutes = require('./routes/salonRoutes');
+const initSocket = require('./socket');
 
 app.use(express.json());
-app.use('/api/users', userRoutes);
+app.use(express.static("public"));
 
-//test route
 app.get('/api/bdd/status', async (req, res) => {
     try{
         const [rows] = await bdd.query("SELECT 1+1 AS result");
@@ -25,9 +26,17 @@ app.get('/api/bdd/status', async (req, res) => {
     }
 })
 
-const PORT = 8888;
+app.use('/api/utilisateurs', utilisateurRoutes);
+app.use('/api/salons', salonRoutes);
+
+app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(500).json({message: "Erreur serveur."});
+});
+
+initSocket(io);
+
+const PORT = process.env.PORT || 8888;
 server.listen(PORT, () => {
   console.log(`Serveur démarré sur le port ${PORT}`);
 });
-
-// npm run dev
