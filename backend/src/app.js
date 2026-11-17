@@ -26,7 +26,7 @@ app.get('/api/bdd/status', async (req, res) => {
     }
 })
 
-app.use('/api/utilisateurs', utilisateurRoutes);
+app.use('/api/users', utilisateurRoutes);
 app.use('/api/salons', salonRoutes);
 
 app.use((err, req, res, next) => {
