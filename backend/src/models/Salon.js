@@ -6,6 +6,11 @@ const extraireId = (url) => {
 
 const estNombre = (x) => typeof x === "number" && Number.isFinite(x) && x >= 0;
 
+// vitesses autorisées (les mêmes que celles proposées par YouTube)
+const VITESSES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+const TAILLE_MAX_MESSAGE = 500;
+const NB_MESSAGES_MAX = 50;
+
 class Salon {
     constructor({ codeUnique, nom, capaciteMax, dateCreation, estSauvegarde, hoteId }) {
         this.codeUnique = codeUnique;
@@ -20,6 +25,21 @@ class Salon {
         this.timecodeCourant = 0;
         this.estEnLecture = false;
         this.misAJourLe = Date.now();
+
+        // vitesse de lecture partagée (1 = normal)
+        this.vitesse = 1;
+        // derniers messages du chat gardés en mémoire
+        this.messages = [];
+        // utilisateurs expulsés par l'hôte (ne peuvent plus revenir)
+        this.bannis = new Set();
+    }
+
+    bannir(utilisateurId) {
+        this.bannis.add(utilisateurId);
+    }
+
+    estBanni(utilisateurId) {
+        return this.bannis.has(utilisateurId);
     }
 
     ajouterParticipant(socketId) {
@@ -57,9 +77,35 @@ class Salon {
         return true;
     }
 
+    changerVitesse(vitesse, timecode) {
+        if (!this.urlVideoCourante || !estNombre(timecode)) return false;
+        if (!VITESSES.includes(vitesse)) return false;
+        this.vitesse = vitesse;
+        this.timecodeCourant = timecode;
+        this.misAJourLe = Date.now();
+        return true;
+    }
+
+    // ajoute un message au chat du salon, renvoie le message ou null si invalide
+    envoyerMessage(texte, auteurPseudo, auteurId) {
+        if (typeof texte !== "string") return null;
+        const contenu = texte.trim();
+        if (contenu.length === 0 || contenu.length > TAILLE_MAX_MESSAGE) return null;
+        const message = {
+            contenu: contenu,
+            auteurPseudo: auteurPseudo,
+            auteurId: auteurId,
+            dateEnvoi: new Date()
+        };
+        this.messages.push(message);
+        // on garde seulement les derniers messages en mémoire
+        if (this.messages.length > NB_MESSAGES_MAX) this.messages.shift();
+        return message;
+    }
+
     positionActuelle() {
         if (!this.estEnLecture) return this.timecodeCourant;
-        return this.timecodeCourant + (Date.now() - this.misAJourLe) / 1000;
+        return this.timecodeCourant + ((Date.now() - this.misAJourLe) / 1000) * this.vitesse;
     }
 
     instantane() {
@@ -67,6 +113,7 @@ class Salon {
             urlVideo: this.urlVideoCourante,
             videoId: extraireId(this.urlVideoCourante),
             enLecture: this.estEnLecture,
+            vitesse: this.vitesse,
             position: this.positionActuelle(),
             heureServeur: Date.now(),
             nbParticipants: this.participants.size
