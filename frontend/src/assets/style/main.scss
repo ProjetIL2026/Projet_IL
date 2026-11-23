@@ -12,6 +12,10 @@ $border-radius-sm: 0.75rem;
 $navbar-height: 76px;
 $border-subtle: rgba(255, 255, 255, 0.08);
 
+root {
+  --bs-border-color: $border-subtle;
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 @import "bootstrap/scss/bootstrap";
 
@@ -71,7 +75,7 @@ body {
 }
 
 // carte, input, boutons
-.clean-card {
+.card {
   background-color: $dark;
   border: 1px solid $border-subtle;
   border-radius: $border-radius;
@@ -168,7 +172,7 @@ body {
   overflow: hidden;
   border: 1px solid $border-subtle;
   background-color: #000000;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 10px 60px -15px rgba(0, 0, 0, 0.85);
 }
 
 /* Masque les elements de l'api youtube (titre, suggestions...) */
@@ -368,4 +372,9 @@ body {
   padding: 0.55rem 0.85rem;
   border-radius: 0.75rem;
   word-break: break-word;
+}
+
+
+.salon-code-spacing {
+  letter-spacing: 0.16em;
 }

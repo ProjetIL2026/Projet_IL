@@ -6,7 +6,7 @@
       <p class="text-muted small">Synchronisation vidéo instantanée avec vos amis.</p>
     </div>
 
-    <div class="clean-card p-4">
+    <div class="card p-4">
       
       <div class="mb-4 pb-4 border-bottom border-secondary border-opacity-25">
         <label class="form-label text-white fw-semibold small mb-1">Nouveau salon</label>

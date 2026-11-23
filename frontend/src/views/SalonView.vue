@@ -126,7 +126,7 @@
 
       <!-- CHAT -->
       <div class="col-12 col-lg-4">
-        <div class="clean-card side-panel d-flex flex-column h-100">
+        <div class="card side-panel d-flex flex-column h-100">
           <div class="px-3 py-3 border-bottom border-secondary border-opacity-25 d-flex align-items-center justify-content-between">
             <span class="fw-bold text-white small">Chat</span>
           </div>

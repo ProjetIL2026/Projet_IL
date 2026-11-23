@@ -3,6 +3,8 @@ import MainLayout from '../layouts/MainLayout.vue'
 import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
 import SalonView from '../views/SalonView.vue'
+import MesSalonsView from '../views/account/MesSalonsView.vue'
+import SettingsView from '../views/account/SettingsView.vue'
 
 const routes = [
   {
@@ -27,6 +29,22 @@ const routes = [
         path: 'salon/:code',
         name: 'room',
         component: SalonView
+      },
+    ]
+  },
+  {
+    path: '/compte',
+    component: MainLayout,
+    children: [
+      {
+        path: 'mes-salons',
+        name: 'my-rooms',
+        component: MesSalonsView
+      },
+      {
+        path: 'parametres',
+        name: 'settings',
+        component: SettingsView
       }
     ]
   }

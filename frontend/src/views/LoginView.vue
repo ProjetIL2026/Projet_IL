@@ -4,10 +4,10 @@
     <!-- En-tête -->
     <div class="text-center mb-4">
       <h1 class="fw-bold text-white fs-3 mb-2">Bon retour parmi nous</h1>
-      <p class="text-muted small mb-0">Connectez-vous pour retrouver vos salons et favoris.</p>
+      <p class="text-muted small mb-0">Connectez-vous pour retrouver vos salons.</p>
     </div>
 
-    <div class="clean-card p-4 p-md-5">
+    <div class="card p-4 p-md-5">
       <form @submit.prevent="loginForm">
         
         <!-- Email ou Pseudo -->

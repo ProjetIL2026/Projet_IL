@@ -41,12 +41,12 @@
                 </router-link>
               </li>
               <li>
-                <router-link class="dropdown-item d-flex align-items-center gap-2" to="/salons">
+                <router-link class="dropdown-item d-flex align-items-center gap-2" to="/compte/mes-salons">
                   <i class="bi bi-collection-play"></i> Mes salons
                 </router-link>
               </li>
               <li>
-                <router-link class="dropdown-item d-flex align-items-center gap-2" to="/parametres">
+                <router-link class="dropdown-item d-flex align-items-center gap-2" to="/compte/parametres">
                   <i class="bi bi-gear"></i> Paramètres
                 </router-link>
               </li>
