@@ -20,13 +20,17 @@
     </div>
 
     <div class="row g-4 align-items-stretch">
-      
+
       <!-- col lecteur + membres -->
       <div class="col-12 col-lg-8">
-        
+
         <!-- lecteur -->
-        <div ref="playerStageRef" class="room-stage mb-3">
-          
+        <div ref="playerStageRef" class="room-stage mb-3 position-relative">
+
+          <div v-if="!joined" class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="z-index: 5; background: rgba(0, 0, 0, 0.85);">
+            <button @click="joinRoom" type="button" class="btn btn-primary px-4 py-2 fw-semibold">Rejoindre le salon</button>
+          </div>
+
           <div class="yt-clean-viewport" @click="togglePlay">
             <div id="yt-custom-player"></div>
 
@@ -39,7 +43,7 @@
           </div>
 
           <div class="custom-player-bar">
-            
+
             <div ref="timelineRef" class="timeline-track mb-3" @click="seekFromClick">
               <div class="timeline-fill" :style="{ width: `${progressPercent}%` }"></div>
               <div class="timeline-thumb" :style="{ left: `${progressPercent}%` }"></div>
@@ -47,7 +51,7 @@
 
             <!-- Boutons -->
             <div class="d-flex align-items-center justify-content-between gap-2">
-              
+
               <!-- Play/Pause, Volume, Temps -->
               <div class="d-flex align-items-center gap-2">
                 <button @click="togglePlay" type="button" class="control-icon-btn" title="Lecture / Pause">
@@ -80,6 +84,13 @@
 
         </div>
 
+        <!-- LIEN YOUTUBE -->
+        <form @submit.prevent="loadFromUrl" class="d-flex gap-2 mb-2">
+          <input v-model="videoUrl" type="text" class="form-control form-control-sm py-2 px-3" placeholder="Coller un lien YouTube...">
+          <button type="submit" :disabled="!joined || !videoUrl.trim()" class="btn btn-primary btn-sm px-3 fw-semibold">Lancer</button>
+        </form>
+        <div v-if="urlError" class="text-danger small mb-3">{{ urlError }}</div>
+
         <!-- DONNEES VIDÉO EN COURS -->
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pb-4 mb-4 border-bottom border-secondary border-opacity-25">
           <div>
@@ -89,7 +100,7 @@
             </div>
           </div>
           <span class="badge bg-dark text-muted border border-secondary border-opacity-25 px-3 py-2">
-            <i class="bi bi-people me-1"></i> {{ members.length }} spectateurs
+            <i class="bi bi-people me-1"></i> {{ participantCount }} spectateurs
           </span>
         </div>
 
@@ -155,21 +166,31 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
+import { io } from 'socket.io-client'
+
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:8888'
+
+const DEFAULT_VIDEO_ID = 'WOl5jjqBJYA'
+const DEFAULT_VIDEO_URL = `https://www.youtube.com/watch?v=${DEFAULT_VIDEO_ID}`
 
 const route = useRoute()
 const roomCode = computed(() => route.params.code || 'test')
 
 // États UI
-const theaterMode = ref(false)
 const copied = ref(false)
 const newMessage = ref('')
 const playerStageRef = ref(null)
 const timelineRef = ref(null)
+const joined = ref(false)
+const videoUrl = ref('')
+const urlError = ref('')
+const participantCount = ref(0)
 
 // États Lecteur YouTube personnalisé
 let ytPlayer = null
+let ytReady = false
 let progressTimer = null
 const isPlaying = ref(false)
 const isMuted = ref(false)
@@ -177,15 +198,26 @@ const volume = ref(80)
 const currentTime = ref(0)
 const duration = ref(0)
 
+// États synchronisation
+let socket = null
+let lastState = null
+let loadedVideoId = DEFAULT_VIDEO_ID
+let defaultRequested = false
+let currentRate = 1
+let clockOffset = 0
+let correctionTimer = null
+let resyncTimer = null
+let calibrateTimer = null
+
 const room = ref({
   name: 'Salon Fun',
   description: 'Regardez et commentez en direct avec le groupe.'
 })
 
 const currentVideo = ref({
-  videoId: '5D7T6uYB-1w',
-  title: 'LES PIRES OBJETS SUR LES SITES CHINOIS ! (ça devient flippant) #9',
-  addedBy: 'Lucas'
+  videoId: DEFAULT_VIDEO_ID,
+  title: 'Squeezie - 24H POUR ÉCHAPPER AUX 6 ÉTOILES DE GTA VI',
+  addedBy: 'Squeezie'
 })
 
 const members = ref([
@@ -218,23 +250,150 @@ const formatTime = (seconds) => {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
 }
 
+// Mesure de la latence et du décalage d'horloge avec le serveur
+const measureOnce = () => new Promise((resolve) => {
+  const t0 = Date.now()
+  socket.emit('ping-temps', t0, (reply) => {
+    const t1 = Date.now()
+    const roundTrip = t1 - t0
+    resolve({ roundTrip, offset: reply.heureServeur + roundTrip / 2 - t1 })
+  })
+})
+
+const calibrate = async () => {
+  const samples = []
+  for (let i = 0; i < 5; i++) {
+    samples.push(await measureOnce())
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  samples.sort((a, b) => a.roundTrip - b.roundTrip)
+  clockOffset = samples[0].offset
+}
+
+const serverNow = () => Date.now() + clockOffset
+
+const targetPosition = (state) => {
+  if (!state.enLecture) return state.position
+  return state.position + (serverNow() - state.heureServeur) / 1000
+}
+
+// Applique l'état reçu du serveur au lecteur
+const applyState = (state) => {
+  lastState = state
+  participantCount.value = state.nbParticipants
+
+  if (joined.value && !state.videoId && !defaultRequested) {
+    defaultRequested = true
+    socket.emit('chargerVideo', DEFAULT_VIDEO_URL)
+    return
+  }
+
+  if (!ytReady || !joined.value || !state.videoId) return
+
+  const target = targetPosition(state)
+
+  if (state.videoId !== loadedVideoId) {
+    loadedVideoId = state.videoId
+    currentVideo.value = { ...currentVideo.value, videoId: state.videoId }
+    if (state.enLecture) ytPlayer.loadVideoById(state.videoId, target)
+    else ytPlayer.cueVideoById(state.videoId, state.position)
+    return
+  }
+
+  const drift = ytPlayer.getCurrentTime() - target
+  if (Math.abs(drift) > 2.5 || (!state.enLecture && Math.abs(drift) > 0.3)) {
+    ytPlayer.seekTo(target, true)
+  }
+
+  const playerState = ytPlayer.getPlayerState()
+  const playing = playerState === window.YT.PlayerState.PLAYING || playerState === window.YT.PlayerState.BUFFERING
+  if (state.enLecture && !playing) ytPlayer.playVideo()
+  if (!state.enLecture && playing) ytPlayer.pauseVideo()
+}
+
+// Connexion au serveur
+const connectSocket = () => {
+  socket = io(SERVER_URL, {
+    transports: ['websocket'],
+    auth: { token: localStorage.getItem('token') }
+  })
+
+  socket.on('etat', applyState)
+  socket.on('participants', (count) => { participantCount.value = count })
+  socket.on('erreur', (message) => { urlError.value = message })
+  socket.on('connect_error', (error) => {
+    urlError.value = error.message === 'websocket error' ? `Impossible de joindre le serveur sur ${SERVER_URL}` : error.message
+  })
+  socket.on('connect', () => {
+    if (joined.value) enterRoom()
+  })
+}
+
+const enterRoom = async () => {
+  await calibrate()
+  socket.emit('rejoindreSalon', roomCode.value)
+}
+
+const joinRoom = () => {
+  joined.value = true
+  enterRoom()
+}
+
+// Correction de la dérive, resynchronisation et recalibrage périodiques
+const startSync = () => {
+  correctionTimer = setInterval(() => {
+    if (!lastState || !lastState.enLecture || !ytReady) return
+    if (ytPlayer.getPlayerState() !== window.YT.PlayerState.PLAYING) return
+
+    const target = targetPosition(lastState)
+    const drift = ytPlayer.getCurrentTime() - target
+    let rate = 1
+
+    if (Math.abs(drift) >= 2.5) ytPlayer.seekTo(target, true)
+    else if (Math.abs(drift) >= 0.4) rate = drift < 0 ? 1.25 : 0.75
+
+    if (rate !== currentRate) {
+      ytPlayer.setPlaybackRate(rate)
+      currentRate = rate
+    }
+  }, 1000)
+
+  resyncTimer = setInterval(() => {
+    if (joined.value) socket.emit('demandeEtat')
+  }, 5000)
+
+  calibrateTimer = setInterval(() => {
+    if (joined.value) calibrate()
+  }, 60000)
+}
+
+const onVisibilityChange = () => {
+  if (!document.hidden && joined.value) socket.emit('demandeEtat')
+}
+
 // Initialisation de l'API YouTube IFrame sans contrôles ni titre
 const initYouTubeAPI = () => {
   const createPlayer = () => {
     ytPlayer = new window.YT.Player('yt-custom-player', {
-      videoId: currentVideo.value.videoId,
-      playerVars: {controls: 0,disablekb: 1,fs: 0,iv_load_policy: 3, modestbranding: 1,rel: 0,playsinline: 1},
+      videoId: DEFAULT_VIDEO_ID,
+      playerVars: { controls: 0, disablekb: 1, fs: 0, iv_load_policy: 3, modestbranding: 1, rel: 0, playsinline: 1 },
       events: {
         onReady: (event) => {
+          ytReady = true
           event.target.setVolume(volume.value)
-          duration.value = event.target.getDuration() || 0
           startProgressLoop()
+          if (lastState) applyState(lastState)
         },
         onStateChange: (event) => {
           isPlaying.value = event.data === window.YT.PlayerState.PLAYING
           if (event.data === window.YT.PlayerState.PLAYING) {
             duration.value = ytPlayer.getDuration() || duration.value
+            const title = ytPlayer.getVideoData?.().title
+            if (title) currentVideo.value = { ...currentVideo.value, title }
           }
+        },
+        onError: () => {
+          urlError.value = 'Cette vidéo ne peut pas être lue ici.'
         }
       }
     })
@@ -261,25 +420,36 @@ const startProgressLoop = () => {
   }, 250)
 }
 
-// Contrôles du lecteur
+// Contrôles partagés : on prévient le serveur, qui renvoie l'état à tout le salon
 const togglePlay = () => {
-  if (!ytPlayer) return
-  if (isPlaying.value) {
-    ytPlayer.pauseVideo()
-  } else {
-    ytPlayer.playVideo()
+  if (!ytPlayer || !joined.value) return
+  if (!socket?.connected) {
+    if (isPlaying.value) ytPlayer.pauseVideo()
+    else ytPlayer.playVideo()
+    return
   }
+  socket.emit('controlerLecteur', isPlaying.value ? 'pause' : 'play', ytPlayer.getCurrentTime())
 }
 
 const seekFromClick = (event) => {
-  if (!ytPlayer || !timelineRef.value || !duration.value) return
+  if (!ytPlayer || !joined.value || !timelineRef.value || !duration.value) return
   const rect = timelineRef.value.getBoundingClientRect()
   const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width))
   const targetTime = ratio * duration.value
-  ytPlayer.seekTo(targetTime, true)
+  if (socket?.connected) socket.emit('controlerLecteur', 'seek', targetTime)
+  else ytPlayer.seekTo(targetTime, true)
   currentTime.value = targetTime
 }
 
+const loadFromUrl = () => {
+  const url = videoUrl.value.trim()
+  if (!url || !joined.value) return
+  urlError.value = ''
+  socket.emit('chargerVideo', url)
+  videoUrl.value = ''
+}
+
+// Contrôles locaux : propres à chaque personne
 const toggleMute = () => {
   if (!ytPlayer) return
   if (isMuted.value) {
@@ -319,5 +489,19 @@ const copyInviteLink = () => {
 
 onMounted(() => {
   initYouTubeAPI()
+  connectSocket()
+  startSync()
+  document.addEventListener('visibilitychange', onVisibilityChange)
+})
+
+onBeforeUnmount(() => {
+  clearInterval(progressTimer)
+  clearInterval(correctionTimer)
+  clearInterval(resyncTimer)
+  clearInterval(calibrateTimer)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  socket?.emit('quitterSalon')
+  socket?.disconnect()
+  ytPlayer?.destroy()
 })
 </script>
